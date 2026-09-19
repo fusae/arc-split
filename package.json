@@ -1,0 +1,20 @@
+{
+  "name": "arc-split",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "dev": "node scripts/serve.mjs",
+    "test": "node --test --test-concurrency=1 tests/*.test.mjs"
+  },
+  "dependencies": {
+    "ethers": "6.17.0"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.55.1",
+    "esbuild": "0.25.10",
+    "ganache": "7.9.2",
+    "solc": "0.8.30"
+  }
+}

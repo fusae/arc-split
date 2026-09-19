@@ -1,0 +1,10 @@
+import { build } from 'esbuild';
+import { mkdir, copyFile, writeFile } from 'node:fs/promises';
+import { compile } from './compile.mjs';
+await mkdir('dist',{recursive:true});
+const {abi,bytecode,runtime}=await compile();
+await writeFile('dist/contract.json',JSON.stringify({name:'ArcSplit',compiler:'0.8.30',abi,bytecode,runtime},null,2));
+await copyFile('contracts/ArcSplit.sol','dist/ArcSplit.sol');
+for(const name of ['index.html','style.css','config.json'])await copyFile('src/'+name,'dist/'+name);
+await build({entryPoints:['src/app.mjs'],outfile:'dist/app.mjs',bundle:true,format:'esm',target:'es2022',minify:true});
+console.log('Built Arc Split static app and reproducible Solidity artifact.');

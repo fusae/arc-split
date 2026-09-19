@@ -1,0 +1,43 @@
+import {test,before,after} from 'node:test';
+import assert from 'node:assert/strict';
+import ganache from 'ganache';
+import {BrowserProvider,ContractFactory,parseUnits,ZeroAddress} from 'ethers';
+import {compile} from '../scripts/compile.mjs';
+import {validateSplit,splitAmounts,parseAmount,parseOrderLink,makeOrderLink,assertPaymentProof,SCALE,NETWORKS} from '../src/core.mjs';
+let rpc,provider,signers,addresses,artifact;
+before(async()=>{
+  artifact=await compile({'TestReceivers.sol':{content:`// SPDX-License-Identifier: MIT
+pragma solidity 0.8.30;
+contract RejectPayment { receive() external payable { revert("declined"); } }
+contract ReenterPayment {
+ address public target; uint256 public targetId; bool public innerSucceeded; uint256 public attempts;
+ function configure(address a,uint256 id) external {target=a;targetId=id;}
+ receive() external payable {attempts++;(innerSucceeded,)=target.call{value:1 ether}(abi.encodeWithSignature("pay(uint256)",targetId));}
+}`}});
+  rpc=ganache.provider({logging:{quiet:true},chain:{chainId:5042,hardfork:'shanghai'},wallet:{totalAccounts:8,defaultBalance:1000}});
+  provider=new BrowserProvider(rpc,undefined,{cacheTimeout:-1});
+  signers=await Promise.all(Array.from({length:6},(_,i)=>provider.getSigner(i)));
+  addresses=await Promise.all(signers.map(s=>s.getAddress()));
+});
+after(async()=>{await provider.destroy();await rpc.disconnect();});
+async function fresh(){const c=await new ContractFactory(artifact.abi,artifact.bytecode,signers[0]).deploy();await c.waitForDeployment();return c;}
+async function order(c,{amount=parseUnits('10',18),recipients=addresses.slice(1,3),shares=[7000,3000],title='Design & development'}={}){const id=await c.nextOrderId();await(await c.createOrder(amount,recipients,shares,title)).wait();return id;}
+test('10 native USDC pays 7 and 3 in a single transaction with no retained balance',async()=>{
+ const c=await fresh(),id=await order(c),a=await provider.getBalance(addresses[1]),b=await provider.getBalance(addresses[2]);
+ const receipt=await(await c.connect(signers[3]).pay(id,{value:parseUnits('10',18)})).wait();
+ assert.equal(await provider.getBalance(addresses[1])-a,parseUnits('7',18));assert.equal(await provider.getBalance(addresses[2])-b,parseUnits('3',18));assert.equal(await provider.getBalance(await c.getAddress()),0n);
+ const o=await c.getOrder(id);assert.equal(o.paid,true);assert.equal(o.paidBy,addresses[3]);assert.equal(o.paidBlock,BigInt(receipt.blockNumber));
+ const ev=receipt.logs.map(l=>{try{return c.interface.parseLog(l);}catch{return null;}}).find(e=>e?.name==='OrderPaid');assertPaymentProof(o,ev,receipt,await c.getAddress(),id);
+});
+test('rejects duplicate payments without changing recipient balances',async()=>{const c=await fresh(),id=await order(c);await(await c.pay(id,{value:parseUnits('10',18)})).wait();const before=await provider.getBalance(addresses[1]);await assert.rejects(c.pay(id,{value:parseUnits('10',18)}));assert.equal(await provider.getBalance(addresses[1]),before);});
+test('wrong amount and nonexistent orders are rejected',async()=>{const c=await fresh(),id=await order(c);for(const amount of ['9','11'])await assert.rejects(c.pay(id,{value:parseUnits(amount,18)}));await assert.rejects(c.pay(999,{value:parseUnits('10',18)}));assert.equal((await c.getOrder(id)).paid,false);});
+test('last receiver failure rolls back earlier transfer and paid state',async()=>{const c=await fresh(),a=artifact.contracts['TestReceivers.sol'].RejectPayment;const reject=await new ContractFactory(a.abi,'0x'+a.evm.bytecode.object,signers[0]).deploy();await reject.waitForDeployment();const id=await order(c,{recipients:[addresses[1],await reject.getAddress()]});const balance=await provider.getBalance(addresses[1]);await assert.rejects(async()=>{await(await c.pay(id,{value:parseUnits('10',18),gasLimit:600000})).wait();});assert.equal(await provider.getBalance(addresses[1]),balance);assert.equal((await c.getOrder(id)).paid,false);assert.equal(await provider.getBalance(await c.getAddress()),0n);});
+test('reentrant payment of another order is blocked',async()=>{const c=await fresh(),a=artifact.contracts['TestReceivers.sol'].ReenterPayment;const r=await new ContractFactory(a.abi,'0x'+a.evm.bytecode.object,signers[0]).deploy();await r.waitForDeployment();const inner=await order(c,{amount:parseUnits('1',18)});await(await r.configure(await c.getAddress(),inner)).wait();const outer=await order(c,{recipients:[addresses[1],await r.getAddress()]});await(await c.pay(outer,{value:parseUnits('10',18)})).wait();assert.equal(await r.attempts(),1n);assert.equal(await r.innerSucceeded(),false);assert.equal((await c.getOrder(inner)).paid,false);assert.equal((await c.getOrder(outer)).paid,true);});
+test('six-decimal rounding matches UI and leaves remainder with final recipient',async()=>{const c=await fresh(),amount=parseUnits('1.000001',18),shares=[3333,3333,3334],id=await order(c,{amount,recipients:addresses.slice(1,4),shares});const payouts=Array.from(await c.getPayouts(id));assert.deepEqual(payouts,splitAmounts(amount,shares));assert.equal(payouts.reduce((a,b)=>a+b,0n),amount);assert(payouts.every(a=>a%SCALE===0n));assert.equal(payouts[2],parseUnits('0.333401',18));});
+test('invalid shares, zero and duplicate recipients are rejected by contract',async()=>{const c=await fresh();const bad=[{shares:[6000,3000]},{shares:[10000,0]},{recipients:[ZeroAddress,addresses[2]]},{recipients:[addresses[1],addresses[1]]},{recipients:[await c.getAddress(),addresses[1]]},{recipients:[addresses[1]],shares:[10000]},{amount:1n},{amount:0n},{amount:parseUnits('0.000001',18)},{title:''},{title:'x'.repeat(181)}];for(const params of bad)await assert.rejects(order(c,params));assert.equal(await c.nextOrderId(),1n);});
+test('contract is immutable, ownerless and rejects ordinary direct transfers',async()=>{const c=await fresh(),address=await c.getAddress();assert.equal((await provider.getCode(address)).toLowerCase(),artifact.runtime.toLowerCase());const names=artifact.abi.filter(x=>x.type==='function').map(x=>x.name);for(const name of ['owner','withdraw','upgradeTo','setRecipients','editOrder'])assert(!names.includes(name));await assert.rejects(signers[0].sendTransaction({to:address,value:1n}));});
+test('supports exactly five recipients and rejects six',async()=>{const c=await fresh();await order(c,{recipients:addresses.slice(1,6),shares:[2000,2000,2000,2000,2000]});await assert.rejects(order(c,{recipients:addresses,shares:[2000,2000,2000,2000,1000,1000]}));});
+test('amount parsing uses native 18 decimals and rejects float/exponent surprises',()=>{assert.equal(parseAmount('0.01'),10n**16n);for(const v of ['1e3','-1','0','NaN','0.0000001',' 1','01','Infinity'])assert.throws(()=>parseAmount(v));});
+test('form validation enforces proportions, uniqueness and byte length',()=>{const base={title:'Design',amount:'10',recipients:[{address:addresses[1],percent:'70'},{address:addresses[2],percent:'30'}]};assert.equal(validateSplit(base).amount,parseUnits('10',18));assert.throws(()=>validateSplit({...base,title:'中'.repeat(61)}));assert.throws(()=>validateSplit({...base,recipients:[base.recipients[0],base.recipients[0]]}));assert.throws(()=>validateSplit({...base,recipients:[base.recipients[0],{...base.recipients[1],percent:'31'}]}));});
+test('links bind network, contract and order; unsafe networks and invalid IDs fail',()=>{const v={chain:5042,contract:addresses[1],id:'42'};assert.deepEqual(parseOrderLink(makeOrderLink('https://example.org',v)),v);assert.throws(()=>parseOrderLink(`https://example.org/#chain=1&contract=${addresses[1]}&order=42`));assert.throws(()=>parseOrderLink(`https://example.org/#chain=5042&contract=${addresses[1]}&order=-1`));assert.equal(BigInt(NETWORKS[5042002].hex),5042002n);});
+test('proof verifier rejects failed receipts, wrong orders, amounts and payout recipients',()=>{const amount=parseUnits('10',18),contract=addresses[0],order={amount,paidBy:addresses[3],paidBlock:1n,shares:[7000,3000],recipients:addresses.slice(1,3)};const event={args:{orderId:1n,amount,payer:addresses[3],recipients:addresses.slice(1,3),payouts:[parseUnits('7',18),parseUnits('3',18)]}},receipt={status:1,to:contract,blockNumber:1};assertPaymentProof(order,event,receipt,contract,1);assert.throws(()=>assertPaymentProof(order,event,{...receipt,status:0},contract,1));assert.throws(()=>assertPaymentProof(order,event,receipt,contract,2));assert.throws(()=>assertPaymentProof(order,{args:{...event.args,amount:1n}},receipt,contract,1));assert.throws(()=>assertPaymentProof(order,{args:{...event.args,recipients:[addresses[4],addresses[2]]}},receipt,contract,1));});
