@@ -10,7 +10,7 @@ Arc Split is a small, English-language, non-custodial prototype: create an immut
 - No simulated payment mode; receipts are verified against onchain transactions.
 - Mainnet contract deployed and runtime-verified: [0x04BCD2f7Ad98071A2E668a047B94Efa46cc7AC08](https://explorer.arc.io/address/0x04BCD2f7Ad98071A2E668a047B94Efa46cc7AC08), chain ID 5042.
 - Arc Testnet end-to-end validation passed: exact 70/30 payouts, receipt verification, duplicate-payment rejection, atomic rollback, reentrancy protection, five recipients and micro-USDC rounding. [Payment evidence](https://explorer.testnet.arc.io/tx/0x83858f5f1f32029f2c22c5e5c0249396aa2c9e988174708cbefeb32d17a30ddf).
-- **A mainnet create/pay demonstration is still outstanding; the grant application has not been submitted.**
+- Mainnet create/pay verification completed: [0.1 USDC payment](https://explorer.arc.io/tx/0x0cf2b7434afb1949c07cbd56ffe4ac1c8ef9da8f799ca4b98aac41be85ab7b4e), split into 0.07 and 0.03 USDC to two builder-controlled wallets. This is a functional test, not customer traction. The grant application has not been submitted.
 - The application defaults to the deployed contracts; visitors do not need to deploy another instance. Transaction signing remains in each user's wallet.
 - Prototype, not independently audited. Test results are not a guarantee of safety.
 
