@@ -38,13 +38,11 @@ try{
   await page.locator('#recipients .recipient-row').nth(1).waitFor();
   await page.waitForFunction(()=>Object.keys(window.__registeredTools||{}).length===2);
   assert.equal(await page.locator('#preview-amount').innerText(),'10.00');
-  await page.locator('#demo').click();await page.locator('#pay').click();
+  assert.equal(await page.locator('#demo').count(),0);
+  assert.equal(await page.getByText(/simulate|try a demo/i).count(),0);
   assert.equal(await page.locator('html').getAttribute('lang'),'en');
-  assert.match(await page.locator('.paid-heading').innerText(),/Demo/);
   assert.equal(await rpc.request({method:'eth_getTransactionCount',params:[accounts[0],'latest']}),'0x0');
-  checks.push('demo is clearly labelled and sends no transaction');
-  await page.locator('#download-receipt').click();
-  await page.locator('#new-order').click();
+  checks.push('no demo entry or simulated payment; opening the app sends no transaction');
   await page.locator('#add-recipient').click();await page.locator('#add-recipient').click();await page.locator('#add-recipient').click();
   assert.equal(await page.locator('.recipient-row').count(),5);assert(await page.locator('#add-recipient').isDisabled());
   await page.locator('.remove-recipient').last().click();await page.locator('.remove-recipient').last().click();await page.locator('.remove-recipient').last().click();

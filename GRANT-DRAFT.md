@@ -20,7 +20,7 @@ Payment and gas both use Arc's native USDC. The contract handles the 18-decimal 
 - Whole-payment rollback when a recipient rejects payment.
 - Shareable order and receipt links, JSON receipt download and print view.
 - Browser-wallet deployment with an explicit fee estimate and runtime verification.
-- English-only interface and clearly separated simulated demo.
+- English-only interface with onchain-verified payment receipts.
 
 ## Deployment evidence
 - Public source: https://github.com/fusae/arc-split
