@@ -14,7 +14,9 @@ Arc Split is a small, bilingual, non-custodial prototype: create an immutable pa
 - The application defaults to the deployed contracts; visitors do not need to deploy another instance. Transaction signing remains in each user's wallet.
 - Prototype, not independently audited. Test results are not a guarantee of safety.
 
-Live application: https://arc-split-fusae.fusae57.chatgpt.site
+Live application: https://arc-split.netlify.app
+
+Hosting: Netlify static hosting; no visitor account is required. Build with `npm run build` and publish `dist/` using `netlify.toml`. Hosting does not hold wallet keys or funds.
 
 Public source: https://github.com/fusae/arc-split
 

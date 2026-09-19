@@ -24,7 +24,7 @@ Payment and gas both use Arc's native USDC. The contract handles the 18-decimal 
 
 ## Deployment evidence
 - Public source: https://github.com/fusae/arc-split
-- Application: https://arc-split-fusae.fusae57.chatgpt.site
+- Application: https://arc-split.netlify.app
 - Mainnet contract: https://explorer.arc.io/address/0x04BCD2f7Ad98071A2E668a047B94Efa46cc7AC08
 - Testnet contract: https://explorer.testnet.arc.io/address/0x6C16c004550d46c8699B0c870bF1fA34c2fE9f7d
 - Testnet payment (not mainnet evidence): https://explorer.testnet.arc.io/tx/0x83858f5f1f32029f2c22c5e5c0249396aa2c9e988174708cbefeb32d17a30ddf
