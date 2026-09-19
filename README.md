@@ -2,7 +2,7 @@
 
 One USDC payment, automatically split between 2–5 collaborators on Arc.
 
-Arc Split is a small, bilingual, non-custodial prototype: create an immutable payment order, share a link, pay once, and independently verify every recipient's payout. The application charges no fee.
+Arc Split is a small, English-language, non-custodial prototype: create an immutable payment order, share a link, pay once, and independently verify every recipient's payout. The application charges no fee.
 
 ## Status
 

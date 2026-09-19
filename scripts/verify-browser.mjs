@@ -26,6 +26,8 @@ await page.exposeFunction('__localWalletRPC',async({method,params=[]})=>{
   return rpc.request({method,params});
 });
 await page.addInitScript(()=>{
+  // Legacy visitors who previously selected Chinese must also see English.
+  localStorage.setItem('arc-split-language',JSON.stringify('zh'));
   Object.defineProperty(window,'ethereum',{value:{request:args=>window.__localWalletRPC(args),on:()=>{}},configurable:true});
   window.__registeredTools={};
   Object.defineProperty(document,'modelContext',{value:{registerTool:tool=>{window.__registeredTools[tool.name]=tool;}},configurable:true});
@@ -67,9 +69,12 @@ try{
   await page.locator('#refresh-order').click();await page.locator('.paid-heading').waitFor({state:'visible'});
   await page.reload();await page.locator('.paid-heading').waitFor({timeout:20000});checks.push('receipt reload verifies from chain, not browser-only payment state');
   await page.screenshot({path:'artifacts/receipt-desktop.png',fullPage:true});
-  await page.locator('#language').click();assert.equal(await page.locator('html').getAttribute('lang'),'zh-CN');
-  assert.match(await page.locator('.paid-heading').innerText(),/已核验/);checks.push('English default and Chinese/English live and receipt flows');
-  await page.locator('#tab-create').click();await page.locator('#language').click();
+  assert.equal(await page.locator('#language').count(),0);
+  assert.equal(await page.locator('html').getAttribute('lang'),'en');
+  assert.match(await page.locator('.paid-heading').innerText(),/verified/);
+  assert.doesNotMatch(await page.locator('body').innerText(),/[\u3400-\u9fff]/);
+  checks.push('English-only receipt and no language switch, including legacy Chinese preference');
+  await page.locator('#tab-create').click();
   await page.screenshot({path:'artifacts/create-desktop.png',fullPage:true});
   await page.setViewportSize({width:390,height:844});await page.screenshot({path:'artifacts/create-mobile.png',fullPage:true});
   assert(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth));checks.push('390px mobile view has no horizontal overflow');

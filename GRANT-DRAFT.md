@@ -6,7 +6,7 @@
 Arc Split
 
 ## Short description
-Arc Split lets independent teams collect one USDC payment and automatically distribute it to 2–5 collaborators in a single atomic transaction. Fixed amounts and split percentages are recorded in an immutable, ownerless contract. Every recipient receives a verifiable payment receipt. The app supports Chinese and English and never holds private keys.
+Arc Split lets independent teams collect one USDC payment and automatically distribute it to 2–5 collaborators in a single atomic transaction. Fixed amounts and split percentages are recorded in an immutable, ownerless contract. Every recipient receives a verifiable payment receipt. The app uses an English-only interface and never holds private keys.
 
 ## What problem does it solve?
 Small collaborative projects often require one person to collect the entire client payment and manually distribute it. That adds custody, follow-up and accounting work. Arc Split makes the agreed split visible before payment and enforces it in the payment transaction.
@@ -20,7 +20,7 @@ Payment and gas both use Arc's native USDC. The contract handles the 18-decimal 
 - Whole-payment rollback when a recipient rejects payment.
 - Shareable order and receipt links, JSON receipt download and print view.
 - Browser-wallet deployment with an explicit fee estimate and runtime verification.
-- Bilingual interface and clearly separated simulated demo.
+- English-only interface and clearly separated simulated demo.
 
 ## Deployment evidence
 - Public source: https://github.com/fusae/arc-split
